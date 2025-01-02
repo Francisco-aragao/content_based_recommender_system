@@ -2,4 +2,4 @@ venv_py
 content.jsonl
 ratings.jsonl
 targets.csv
-
+model.pkl
