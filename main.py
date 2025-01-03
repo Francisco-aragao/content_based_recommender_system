@@ -9,11 +9,11 @@ from sklearn.model_selection import train_test_split
 
 from surprise import SVD, Reader, Dataset, model_selection, accuracy, dump
 
-TEST_SIZE = 0.2 
+TEST_SIZE = 0.15
 RANDOM_STATE = 0  # ensure reproducibility
-N_FACTORS = 100 
-N_EPOCHS = 20 
-BIAS = False # this set to use (or not) the user and item bias in the model
+N_FACTORS = 120 
+N_EPOCHS = 15 
+BIAS = True # this set to use (or not) the user and item bias in the model
 
 def receive_args() -> tuple[pd.DataFrame, pd.DataFrame]:
     """
