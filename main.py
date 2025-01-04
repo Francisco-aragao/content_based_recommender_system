@@ -1,46 +1,17 @@
-import pandas as pd
-import numpy as np
 import argparse
-from surprise.accuracy import rmse, mae
-from surprise import Dataset, Reader, SVD
+import sys
+
+import numpy as np
+import pandas as pd
+from surprise import SVD, Dataset, Reader
+from surprise.accuracy import mae, rmse
 
 # TRAIN PARAMS
-FACTORS = 100
-EPOCHS = 20
+FACTORS = 150
+EPOCHS = 25
 LR = 0.005
 REG = 0.02
 USE_BIAS = True
-
-
-class RecommenderSVD:
-    def __init__(self) -> None:
-        self.model = None
-
-    def train(
-        self,
-        data,
-        n_factors=FACTORS,
-        n_epochs=EPOCHS,
-        lr_all=LR,
-        reg_all=REG,
-        biased=USE_BIAS,
-    ):
-        self.model = SVD(
-            n_factors=n_factors,
-            n_epochs=n_epochs,
-            lr_all=lr_all,
-            reg_all=reg_all,
-            biased=biased,
-        )
-
-        self.model.fit(data)
-
-        return self.model
-
-    def test(self, data):
-        preds = self.model.test(data)
-
-        return preds, rmse(preds, verbose=False), mae(preds, verbose=False)
 
 
 def initParser() -> argparse.ArgumentParser:
@@ -155,29 +126,36 @@ if __name__ == "__main__":
     data, dfRatings = loadRatings(args.ratings)
     dfContent = loadContent(args.content)
 
-    train_data = data.build_full_trainset()
+    trainingData = data.build_full_trainset()
 
-    # model
-    model = RecommenderSVD()
+    # Train the model
+    model = SVD(
+        n_factors=FACTORS,
+        n_epochs=EPOCHS,
+        lr_all=LR,
+        reg_all=REG,
+        biased=USE_BIAS,
+    )
 
-    model.train(train_data, n_factors=150, n_epochs=25)
+    model.fit(trainingData)
 
     dfTargets = pd.read_csv(args.targets)
 
     # Convert dfTargets to a list of tuples for prediction
-    test_data = list(
+    testData = list(
         zip(dfTargets["UserId"], dfTargets["ItemId"], [None] * len(dfTargets))
     )
 
     # Make predictions
     predictions = [
-        model.model.predict(uid, iid, r_ui=verdict, verbose=False)
-        for (uid, iid, verdict) in test_data
+        model.predict(uid, iid, r_ui=verdict, verbose=False)
+        for (uid, iid, verdict) in testData
     ]
+
     fullPredictions = np.array([pred.est for pred in predictions])
 
     # lookup item info
-    ItemLUT = dfContent.set_index("ItemId")[
+    itemLUT = dfContent.set_index("ItemId")[
         ["imdbVotes", "Metascore", "rtRating", "imdbRating", "Awards"]
     ].to_dict(orient="index")
 
@@ -185,27 +163,28 @@ if __name__ == "__main__":
     finalPredictions = []
 
     for i in range(len(fullPredictions)):
-        itemId = predictions[i].iid
-        item_info = ItemLUT[itemId]
+        itemID = predictions[i].iid
+        itemInfo = itemLUT[itemID]
+
         rating = (
             0.25
             * fullPredictions[i]
             * 0.7
-            * item_info["imdbVotes"]
+            * itemInfo["imdbVotes"]
             * 0.02
-            * item_info["Metascore"]
+            * itemInfo["Metascore"]
             * 0.02
-            * item_info["rtRating"]
+            * itemInfo["rtRating"]
             * 0.03
-            * item_info["imdbRating"]
-            + 6 * item_info["Awards"]
+            * itemInfo["imdbRating"]
+            + 6 * itemInfo["Awards"]
         )
 
         finalPredictions.append(rating)
 
     dfTargets["Rating"] = finalPredictions
 
-    # normalize col rating
+    # Normalize ratings
     minRating = dfTargets["Rating"].min()
     maxRating = dfTargets["Rating"].max()
     dfTargets["Rating"] = ((dfTargets["Rating"] - minRating) * 10) / (
@@ -215,10 +194,8 @@ if __name__ == "__main__":
     # Sort the DataFrame by UserId and then by Rating in descending order
     dfSorted = dfTargets.sort_values(by=["UserId", "Rating"], ascending=[True, False])
 
-    dfSorted.to_csv("target_predictions_sorted.csv", index=False)
-
     # Drop the Rating column as it's not needed in the final output
     dfResult = dfSorted.drop("Rating", axis=1)
 
-    # Write to a CSV file
-    dfResult.to_csv("sorted_items_per_user.csv", index=False)
+    # Final submission
+    dfResult.to_csv(sys.stdout, index=False)
