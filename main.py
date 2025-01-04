@@ -9,10 +9,16 @@ from surprise.accuracy import mae, rmse
 # TRAIN PARAMS
 FACTORS = 150
 EPOCHS = 25
-LR = 0.005
-REG = 0.02
+LR = 0.005 # Learning rate
+REG = 0.01
 USE_BIAS = True
 
+WEIGHT_PREDICTION = 0.3
+WEIGHT_IMDB_VOTES = 0.00001
+WEIGHT_METASCORE = 0.3
+WEIGHT_RT_RATING = 0.39998
+WEIGHT_IMDB = 0.00001
+WEIGHT_BIAS_AWARDS = 2
 
 def initParser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -166,7 +172,7 @@ if __name__ == "__main__":
         itemID = predictions[i].iid
         itemInfo = itemLUT[itemID]
 
-        rating = (
+        """ rating = (
             0.25
             * fullPredictions[i]
             * 0.7
@@ -178,6 +184,20 @@ if __name__ == "__main__":
             * 0.03
             * itemInfo["imdbRating"]
             + 6 * itemInfo["Awards"]
+        ) """
+
+        rating = (
+            WEIGHT_PREDICTION
+            * fullPredictions[i]
+            * WEIGHT_IMDB_VOTES
+            * itemInfo["imdbVotes"]
+            * WEIGHT_METASCORE
+            * itemInfo["Metascore"]
+            * WEIGHT_RT_RATING
+            * itemInfo["rtRating"]
+            * WEIGHT_IMDB
+            * itemInfo["imdbRating"]
+            + WEIGHT_BIAS_AWARDS * itemInfo["Awards"]
         )
 
         finalPredictions.append(rating)
