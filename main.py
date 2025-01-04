@@ -1,121 +1,224 @@
-# execution: python3 main.py ratings.csv targets.csv
-
-import argparse # default python library
-
 import pandas as pd
-import json
+import numpy as np
+import argparse
+from surprise.accuracy import rmse, mae
+from surprise import Dataset, Reader, SVD
 
-from sklearn.model_selection import train_test_split
+# TRAIN PARAMS
+FACTORS = 100
+EPOCHS = 20
+LR = 0.005
+REG = 0.02
+USE_BIAS = True
 
-from surprise import SVD, Reader, Dataset, model_selection, accuracy, dump
 
-TEST_SIZE = 0.2 
-RANDOM_STATE = 0  # ensure reproducibility
-N_FACTORS = 100 
-N_EPOCHS = 20 
-BIAS = False # this set to use (or not) the user and item bias in the model
+class RecommenderSVD:
+    def __init__(self) -> None:
+        self.model = None
 
-def receive_args() -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-        Receive the arguments from the command line
-    """
-    
-    parser = argparse.ArgumentParser(description="""
-        Process input files to make recomendations. 
-        Run with: [ python3 main.py ratings.jsonl content.jsonl targets.csv > submission.csv ]                                 
-    """)
+    def train(
+        self,
+        data,
+        n_factors=FACTORS,
+        n_epochs=EPOCHS,
+        lr_all=LR,
+        reg_all=REG,
+        biased=USE_BIAS,
+    ):
+        self.model = SVD(
+            n_factors=n_factors,
+            n_epochs=n_epochs,
+            lr_all=lr_all,
+            reg_all=reg_all,
+            biased=biased,
+        )
 
-    parser.add_argument("ratings", type=str, help="ratings jsonl file")
-    parser.add_argument("content", type=str, help="targets jsonl file")
-    parser.add_argument("targets", type=str, help="targets CSV file")
-    parser.add_argument("--storeOutput", type=str, help="flag to store output in a csv file")
-    parser.add_argument("--usingStoredModel", type=str, help="flag to read a stored model from the path given")
+        self.model.fit(data)
 
-    args = parser.parse_args()
+        return self.model
 
-    if not (args.ratings and args.targets and args.content):
-        raise Exception
+    def test(self, data):
+        preds = self.model.test(data)
 
-    # load the jsonl data using pandas
-    ratings = pd.read_json(args.ratings, lines=True)
-    content = pd.read_json(args.content, lines=True)
+        return preds, rmse(preds, verbose=False), mae(preds, verbose=False)
 
-    """ with open(args.ratings, 'r', encoding='utf-8') as file:
-        ratings = [json.loads(line.strip()) for line in file]
-    
-    with open(args.content, 'r', encoding='utf-8') as file:
-        content = [json.loads(line.strip()) for line in file] """
 
-    targets = pd.read_csv(args.targets)
+def initParser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="""Recommender System for the RecSys Challenge II (2024/2).
+        Sample usage: python3 main.py ratings.jsonl content.jsonl targets.csv > submission.csv"""
+    )
 
-    store_output = args.storeOutput if args.storeOutput else None
+    parser.add_argument(
+        "ratings",
+        metavar="ratings",
+        type=str,
+        help="JSONL file with user-item-tstamp ratings to train the model",
+    )
 
-    load_model = args.usingStoredModel if args.usingStoredModel else None
+    parser.add_argument(
+        "content",
+        metavar="content",
+        type=str,
+        help="JSONL file with item contents to train the model",
+    )
 
-    return ratings, content, targets, store_output, load_model
+    parser.add_argument(
+        "targets",
+        metavar="targets",
+        type=str,
+        help="CSV file with user-item pairs to predict",
+    )
+
+    return parser
+
+
+def loadRatings(filename: str):
+    dfRatings = pd.read_json(filename, lines=True)
+
+    # Define a reader with the rating scale
+    reader = Reader(rating_scale=(min(dfRatings["Rating"]), max(dfRatings["Rating"])))
+
+    # Load the dataset into Surprise
+    return (
+        Dataset.load_from_df(dfRatings[["UserId", "ItemId", "Rating"]], reader),
+        dfRatings,
+    )
+
+
+def loadContent(filename: str):
+    dfContent = pd.read_json(filename, lines=True)
+
+    # Getting the Rotten Tomatoes ratings
+    allRtRatings = []
+    for ratingsList in dfContent["Ratings"]:
+        rt = next(
+            (
+                item["Value"]
+                for item in ratingsList
+                if item["Source"] == "Rotten Tomatoes"
+            ),
+            None,
+        )
+
+        if rt:
+            rt = int(rt[:-1])
+
+        allRtRatings.append(rt)
+
+    dfContent["rtRating"] = allRtRatings
+
+    # Getting useful columns
+    dfContentUseful = dfContent[
+        ["ItemId", "Metascore", "imdbRating", "imdbVotes", "rtRating", "Awards"]
+    ].copy()
+
+    # Updating 'Awards' column
+    dfContentUseful["Awards"] = dfContentUseful["Awards"].apply(
+        lambda x: 0 if x == "N/A" else 1
+    )
+
+    # Replacing string 'N/A' with np.nan and removing number separators
+    dfContentUseful = dfContentUseful.replace("N/A", np.nan)
+    dfContentUseful["imdbVotes"] = dfContentUseful["imdbVotes"].str.replace(",", "")
+
+    # Converting to numeric data
+    dfContentUseful["Metascore"] = dfContentUseful["Metascore"].astype("float32")
+    dfContentUseful["imdbRating"] = dfContentUseful["imdbRating"].astype("float32")
+    dfContentUseful["imdbVotes"] = dfContentUseful["imdbVotes"].astype("float32")
+
+    # Substitute NaN with mean
+    quantiles = dfContentUseful.quantile(0.5, numeric_only=True)
+    dfContentUseful = dfContentUseful.fillna(quantiles)
+
+    # Normalizing imdbRating between 0 and 10
+    for col in dfContentUseful.columns:
+        if col in ["ItemId", "Awards"]:
+            continue
+
+        minRating = dfContentUseful[col].min()
+        maxRating = dfContentUseful[col].max()
+
+        dfContentUseful[col] = ((dfContentUseful[col] - minRating) * 10) / (
+            maxRating - minRating
+        )
+
+    return dfContentUseful
 
 
 if __name__ == "__main__":
+    # Get args
+    parser = initParser()
+    args = parser.parse_args()
 
-    # receive parameters
-    ratings, content, targets, store_output, load_model = receive_args()
+    # Load data
+    data, dfRatings = loadRatings(args.ratings)
+    dfContent = loadContent(args.content)
 
-    if load_model:
-        # load the model
-        pass
+    train_data = data.build_full_trainset()
 
-    # print len ratings
-    print("Ratings length: ", len(ratings))
+    # model
+    model = RecommenderSVD()
 
-    # calculating matrix sparsity
-    #sparsity = 1 - len(ratings) / (len(ratings["UserId"].unique()) * len(ratings["ItemId"].unique()))
-    # print("Matrix Sparsity: ", sparsity)
+    model.train(train_data, n_factors=150, n_epochs=25)
 
-    # create the model
-    reader = Reader(rating_scale=(ratings.Rating.min(), ratings.Rating.max()))
-    data = Dataset.load_from_df(ratings[['UserId', 'ItemId', 'Rating']], reader)
+    dfTargets = pd.read_csv(args.targets)
 
-    trainset, testset = model_selection.train_test_split(data, test_size=TEST_SIZE, random_state=RANDOM_STATE)
-    
-    # print len train_ratings
+    # Convert dfTargets to a list of tuples for prediction
+    test_data = list(
+        zip(dfTargets["UserId"], dfTargets["ItemId"], [None] * len(dfTargets))
+    )
 
+    # Make predictions
+    predictions = [
+        model.model.predict(uid, iid, r_ui=verdict, verbose=False)
+        for (uid, iid, verdict) in test_data
+    ]
+    fullPredictions = np.array([pred.est for pred in predictions])
 
-    # Train FunkSVD
-    model = SVD(n_factors=N_FACTORS, n_epochs=N_EPOCHS, biased=True, random_state=RANDOM_STATE)
-    model.fit(trainset)
+    # lookup item info
+    ItemLUT = dfContent.set_index("ItemId")[
+        ["imdbVotes", "Metascore", "rtRating", "imdbRating", "Awards"]
+    ].to_dict(orient="index")
 
-    # store the model
-    dump.dump('model.pkl', algo=model)
+    # The final rating will be a weighted sum of some features
+    finalPredictions = []
 
-    # Make predictions on the test set
-    test_predictions = model.test(testset)
+    for i in range(len(fullPredictions)):
+        itemId = predictions[i].iid
+        item_info = ItemLUT[itemId]
+        rating = (
+            0.25
+            * fullPredictions[i]
+            * 0.7
+            * item_info["imdbVotes"]
+            * 0.02
+            * item_info["Metascore"]
+            * 0.02
+            * item_info["rtRating"]
+            * 0.03
+            * item_info["imdbRating"]
+            + 6 * item_info["Awards"]
+        )
 
-    # Extract the predictions
-    test_ratings = [(pred.uid, pred.iid, pred.est) for pred in test_predictions]
+        finalPredictions.append(rating)
 
-    # evaluate the model
+    dfTargets["Rating"] = finalPredictions
 
-    rmse = accuracy.rmse(test_predictions)
-    mae = accuracy.mae(test_predictions)
+    # normalize col rating
+    minRating = dfTargets["Rating"].min()
+    maxRating = dfTargets["Rating"].max()
+    dfTargets["Rating"] = ((dfTargets["Rating"] - minRating) * 10) / (
+        maxRating - minRating
+    )
 
-    target_predictions = []
-    for row in targets.itertuples():
-        uid = row.UserId
-        iid = row.ItemId
-        pred = model.predict(uid, iid).est
-        target_predictions.append(pred)
+    # Sort the DataFrame by UserId and then by Rating in descending order
+    dfSorted = dfTargets.sort_values(by=["UserId", "Rating"], ascending=[True, False])
 
-    # merge the predictions with the targets in one dataframe
-    targets['PredictedRating'] = target_predictions
+    dfSorted.to_csv("target_predictions_sorted.csv", index=False)
 
-    # sort the predictions based on the rating
-    targets = targets.sort_values(by='PredictedRating', ascending=False)
+    # Drop the Rating column as it's not needed in the final output
+    dfResult = dfSorted.drop("Rating", axis=1)
 
-    # remove the PredictedRating column
-    targets = targets.drop(columns=['PredictedRating'])
-
-    # store targets
-    if store_output:
-        targets.to_csv(store_output, index=False)
-    else:
-        print(targets)
+    # Write to a CSV file
+    dfResult.to_csv("sorted_items_per_user.csv", index=False)
