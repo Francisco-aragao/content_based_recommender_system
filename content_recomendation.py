@@ -7,6 +7,28 @@ class ContentRecomendation:
     def __init__(self):
         pass
 
+    def get_final_target_df(self, dfTargets, finalPredictions):
+        dfTargets["Rating"] = finalPredictions
+        minRating, maxRating = dfTargets["Rating"].min(), dfTargets["Rating"].max()
+        dfTargets["Rating"] = (dfTargets["Rating"] - minRating) * 10 / (maxRating - minRating)
+
+        # sort values to create ranking
+        dfTargets = dfTargets.sort_values(by=["UserId", "Rating"], ascending=[True, False])
+
+        dfResult = dfTargets.drop("Rating", axis=1)
+        
+        return dfResult
+    
+    def get_final_predictions(self, ratings_prediction_nparray, rat_predictions, item_table_info, weights):
+        finalPredictions = []
+        for i in range(len(ratings_prediction_nparray)):
+            itemID = rat_predictions[i].iid
+            itemInfo = item_table_info[itemID]
+            rating = self.calculate_rating(weights, ratings_prediction_nparray[i], itemInfo)
+            finalPredictions.append(rating)
+
+        return finalPredictions
+
     def train_SVD_model(self, data, factors: int, epochs: int, lr: float, reg: float, use_bias: bool):
         trainingData = data.build_full_trainset()
 
@@ -21,6 +43,19 @@ class ContentRecomendation:
         model.fit(trainingData)
 
         return model
+
+    def generate_predictions(self, model, dfTargets):
+        
+        testData = list(
+            zip(dfTargets["UserId"], dfTargets["ItemId"], [None] * len(dfTargets))
+        )
+        ratings_prediction = [
+            model.predict(uid, iid, r_ui=None, verbose=False) for (uid, iid, _) in testData
+        ]
+
+        ratings_prediction_nparray = np.array([pred.est for pred in ratings_prediction])
+
+        return ratings_prediction, ratings_prediction_nparray
 
     def loadRatings(self, filename: str):
         dfRatings = pd.read_json(filename, lines=True)
@@ -107,7 +142,7 @@ class ContentRecomendation:
 
     def gradient_descent(self, weights, train_data, item_lut, full_predictions, lr=0.001, epochs=100):
         """Perform gradient descent to learn weights and calculate RMSE."""
-        for epoch in range(epochs):
+        for _ in range(epochs):
             gradients = {k: 0.0 for k in weights.keys()}
             errors = []
 
@@ -116,7 +151,7 @@ class ContentRecomendation:
                 actual_rating = train_data[i][2] 
 
                 item_info = item_lut[item_id]
-                predicted_rating = calculate_rating(weights, full_predictions[i], item_info)
+                predicted_rating = self.calculate_rating(weights, full_predictions[i], item_info)
 
                 # compute error
                 error = predicted_rating - actual_rating
@@ -135,7 +170,7 @@ class ContentRecomendation:
                 weights[k] -= lr * gradients[k] / len(full_predictions)  # Normalize by batch size
 
             # calculate RMSE errors
-            rmse = np.sqrt(np.mean(np.array(errors) ** 2))
+            #rmse = np.sqrt(np.mean(np.array(errors) ** 2))
             #print(f"Epoch {epoch + 1}/{epochs}, RMSE: {rmse:.4f}")
 
         return weights
