@@ -1,0 +1,156 @@
+import numpy as np
+import pandas as pd
+from surprise import SVD, Dataset, Reader
+
+class ContentRecomendation:
+
+    def __init__(self):
+        pass
+
+    def train_SVD_model(self, data, factors: int, epochs: int, lr: float, reg: float, use_bias: bool):
+        trainingData = data.build_full_trainset()
+
+        # Train the model
+        model = SVD(
+            n_factors=factors,
+            n_epochs=epochs,
+            lr_all=lr,
+            reg_all=reg,
+            biased=use_bias,
+        )
+        model.fit(trainingData)
+
+        return model
+
+    def loadRatings(self, filename: str):
+        dfRatings = pd.read_json(filename, lines=True)
+
+        # Define a reader with the rating scale
+        reader = Reader(rating_scale=(min(dfRatings["Rating"]), max(dfRatings["Rating"])))
+
+        # Load the dataset into Surprise
+        return (
+            Dataset.load_from_df(dfRatings[["UserId", "ItemId", "Rating"]], reader),
+            dfRatings,
+        )
+
+
+    def loadContent(self, filename: str):
+        dfContent = pd.read_json(filename, lines=True)
+
+        # Extracting Rotten Tomatoes ratings
+        allRtRatings = []
+        for ratingsList in dfContent["Ratings"]:
+            rt = next(
+                (
+                    item["Value"]
+                    for item in ratingsList
+                    if item["Source"] == "Rotten Tomatoes"
+                ),
+                None,
+            )
+
+            if rt:
+                rt = int(rt[:-1])
+
+            allRtRatings.append(rt)
+
+        dfContent["rtRating"] = allRtRatings
+
+        # Getting useful columns
+        dfContentUseful = dfContent[
+            ["ItemId", "Metascore", "imdbRating", "imdbVotes", "rtRating", "Awards"]
+        ].copy()
+
+        # Updating 'Awards' column
+        dfContentUseful["Awards"] = dfContentUseful["Awards"].apply(
+            lambda x: 0 if x == "N/A" else 1
+        )
+
+        # Replacing string 'N/A' with np.nan and removing number separators
+        dfContentUseful = dfContentUseful.replace("N/A", np.nan)
+        dfContentUseful["imdbVotes"] = dfContentUseful["imdbVotes"].str.replace(",", "")
+
+        # Converting to numeric data
+        dfContentUseful["Metascore"] = dfContentUseful["Metascore"].astype("float32")
+        dfContentUseful["imdbRating"] = dfContentUseful["imdbRating"].astype("float32")
+        dfContentUseful["imdbVotes"] = dfContentUseful["imdbVotes"].astype("float32")
+
+        # Substitute NaN with median
+        quantiles = dfContentUseful.quantile(0.5, numeric_only=True)
+        dfContentUseful = dfContentUseful.fillna(quantiles)
+
+        # Normalizing ratings between 0 and 10
+        for col in dfContentUseful.columns:
+            if col in ["ItemId", "Awards"]:
+                continue
+
+            minRating = dfContentUseful[col].min()
+            maxRating = dfContentUseful[col].max()
+
+            dfContentUseful[col] = ((dfContentUseful[col] - minRating) * 10) / (
+                maxRating - minRating
+            )
+
+        return dfContentUseful
+
+
+    def calculate_rating(self, weights, prediction, item_info):
+        return (
+            weights["prediction"] * prediction
+            + weights["imdb_votes"] * item_info["imdbVotes"]
+            + weights["metascore"] * item_info["Metascore"]
+            + weights["rt_rating"] * item_info["rtRating"]
+            + weights["imdb"] * item_info["imdbRating"]
+            + weights["bias_awards"] * item_info["Awards"]
+        )
+
+    def gradient_descent(self, weights, train_data, item_lut, full_predictions, lr=0.001, epochs=100):
+        """Perform gradient descent to learn weights and calculate RMSE."""
+        for epoch in range(epochs):
+            gradients = {k: 0.0 for k in weights.keys()}
+            errors = []
+
+            for i in range(len(full_predictions)):
+                item_id = train_data[i][1]
+                actual_rating = train_data[i][2] 
+
+                item_info = item_lut[item_id]
+                predicted_rating = calculate_rating(weights, full_predictions[i], item_info)
+
+                # compute error
+                error = predicted_rating - actual_rating
+                errors.append(error)
+
+                # find gradients
+                gradients["prediction"] += error * full_predictions[i]
+                gradients["imdb_votes"] += error * item_info["imdbVotes"]
+                gradients["metascore"] += error * item_info["Metascore"]
+                gradients["rt_rating"] += error * item_info["rtRating"]
+                gradients["imdb"] += error * item_info["imdbRating"]
+                gradients["bias_awards"] += error * item_info["Awards"]
+
+            # Update weights 
+            for k in weights.keys():
+                weights[k] -= lr * gradients[k] / len(full_predictions)  # Normalize by batch size
+
+            # calculate RMSE errors
+            rmse = np.sqrt(np.mean(np.array(errors) ** 2))
+            #print(f"Epoch {epoch + 1}/{epochs}, RMSE: {rmse:.4f}")
+
+        return weights
+
+    def initialize_weights(self, bias_key="bias_awards"):
+        # the weights are not totally random. They are initialized with some intuition based on Kaggle experimentation
+        weights = {
+            "prediction": 0.3,
+            "imdb_votes": 0.4,
+            "metascore": 0.1,
+            "rt_rating": 0.1,
+            "imdb": 0.1,
+        }
+        
+        # Assign a separate random value to the bias key
+        weights[bias_key] = np.random.randint(1, 10)  # Random value between 0 and 10
+
+        return weights

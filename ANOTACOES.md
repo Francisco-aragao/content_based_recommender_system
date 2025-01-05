@@ -444,3 +444,148 @@ WEIGHT_BIAS_AWARDS = 2
 Kaggle result - 0.66
 
 ### Só com um pouquinho de IMDB melhora de mais
+
+# 25 submissao
+
+Final weights: {'prediction': 0.2793055550484167, 'imdb_votes': 0.006201343845505356, 'metascore': 0.22029817550012423, 'rt_rating': 0.2773619814751889, 'imdb': 0.009635311564216958, 'bias_awards': 1.991592899542149}
+
+FACTORS = 1
+EPOCHS = 95
+LR = 0.005  # Learning rate for SVD
+REG = 0.01
+USE_BIAS = True
+LEARNING_RATE_WEIGHTS = 0.001
+GRADIENT_EPOCHS = 100
+
+Kaggle 0.10
+
+# 26 submissao
+
+Final weights: {'prediction': 0.221468924660898, 'imdb_votes': 0.46525713686143955, 'metascore': 0.21142391692127435, 'rt_rating': 0.29147650196533653, 'imdb': 0.17362110624397378, 'bias_awards': 0.556359991335989}
+
+FACTORS = 1
+EPOCHS = 95
+LR = 0.005  # Learning rate for SVD
+REG = 0.01
+USE_BIAS = True
+LEARNING_RATE_WEIGHTS = 0.001
+GRADIENT_EPOCHS = 100
+
+Kaggle 0.10
+
+# 27 submissao
+
+Final weights: {'prediction': 0.5599591367037845, 'imdb_votes': 0.3048172195087188, 'metascore': 0.056150155204912205, 'rt_rating': 0.13198081025955166, 'imdb': 0.12798465450269414, 'bias_awards': 0.8194830135364868}
+
+FACTORS = 50
+EPOCHS = 50
+LR = 0.005  # Learning rate for SVD
+REG = 0.01
+USE_BIAS = True
+LEARNING_RATE_WEIGHTS = 0.001
+GRADIENT_EPOCHS = 100
+
+kaggle 0.10
+
+# 28 submissao
+
+Final weights: {'prediction': 0.07391042401151084, 'imdb_votes': 0.013761603357143094, 'metascore': 0.11284649887756952, 'rt_rating': 0.27463590355618334, 'imdb': 0.4693288194743187, 'bias_awards': 0.9782429775633855}
+
+FACTORS = 100
+EPOCHS = 50
+LR = 0.005  # Learning rate for SVD
+REG = 0.01
+USE_BIAS = True
+LEARNING_RATE_WEIGHTS = 0.001
+GRADIENT_EPOCHS = 100
+
+kaggle 0.10
+
+# 29 submissao
+
+FACTORS = 150
+EPOCHS = 20
+LR = 0.01  # Learning rate for SVD
+USE_BIAS = True
+BATCH_SIZE = 30
+
+LEARNING_RATE_WEIGHTS = 0.001
+GRADIENT_EPOCHS = 100
+
+Final weights: {'prediction': 0.12999025406517856, 'imdb_votes': -0.03924541876976724, 'metascore': -0.006649615533715257, 'rt_rating': -0.020631423289098755, 'imdb': 0.9910646691504967, 'bias_awards': 0.009865093967845035}
+
+kaggle 0.10
+
+
+# 30 submissao
+
+FACTORS = 150
+EPOCHS = 20
+LR = 0.01  # Learning rate for SVD
+USE_BIAS = True
+BATCH_SIZE = 30
+
+LEARNING_RATE_WEIGHTS = 0.001
+GRADIENT_EPOCHS = 100
+
+Final weights: {'prediction': 0.15920407260401465, 'imdb_votes': 0.006128541013855994, 'metascore': 0.13483262813945196, 'rt_rating': -0.05412821844780214, 'imdb': 0.7251987659448155, 'bias_awards': 0.8695016299686347}
+
+kaggle 0.10
+
+# 32 submissao
+Final weights: {'prediction': 0.24123956556466264, 'imdb_votes': 0.36707063709804616, 'metascore': 0.08013705708822978, 'rt_rating': 0.3193497867001439, 'imdb': 0.28736783318312126, 'bias_awards': 0.38114184590437733}
+FACTORS = 150
+EPOCHS = 25
+LR = 0.05  # Learning rate for SVD
+USE_BIAS = True
+REG = 0.05
+
+LEARNING_RATE_WEIGHTS = 0.002
+GRADIENT_EPOCHS = 70
+
+kaggle 0.10
+
+# 34 submissao
+
+Final weights: {'prediction': 0.05292737099789775, 'imdb_votes': 0.08943101829605517, 'metascore': 0.16857429562482432, 'rt_rating': 0.22193172725216848, 'imdb': 0.5280767245518214, 'bias_awards': 0.630901980534699}
+
+FACTORS = 80
+EPOCHS = 25
+LR = 0.005
+REG = 0.02
+USE_BIAS = True
+
+LEARNING_RATE_WEIGHTS = 0.001
+GRADIENT_EPOCHS = 40
+
+kaggle 0.49
+
+# 35
+
+Final weights: {'prediction': 0.2686978656383046, 'imdb_votes': 0.3071337179154058, 'metascore': 0.09455936574646003, 'rt_rating': 0.08375788323237696, 'imdb': 0.526435016386344, 'bias_awards': 0.2661165131610226}
+
+FACTORS = 100
+EPOCHS = 25
+LR = 0.005
+REG = 0.02
+USE_BIAS = True
+
+LEARNING_RATE_WEIGHTS = 0.005
+GRADIENT_EPOCHS = 40
+
+kaggle 0.55
+
+# 36
+
+Final weights: {'prediction': 0.2548789284649461, 'imdb_votes': 0.3705062916993015, 'metascore': 0.060486385393324474, 'rt_rating': 0.06093673937437485, 'imdb': 0.06821818093813317, 'bias_awards': 3.984780605225248}
+
+FACTORS = 150
+EPOCHS = 25
+LR = 0.005 
+REG = 0.02
+USE_BIAS = True
+
+LEARNING_RATE_WEIGHTS = 0.005
+GRADIENT_EPOCHS = 10
+
+kaggle 0.60

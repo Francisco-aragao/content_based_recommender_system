@@ -46,7 +46,6 @@ def initParser() -> argparse.ArgumentParser:
         type=str,
         help="CSV file with user-item pairs to predict",
     )
-
     return parser
 
 
@@ -171,20 +170,6 @@ if __name__ == "__main__":
     for i in range(len(fullPredictions)):
         itemID = predictions[i].iid
         itemInfo = itemLUT[itemID]
-
-        """ rating = (
-            0.25
-            * fullPredictions[i]
-            * 0.7
-            * itemInfo["imdbVotes"]
-            * 0.02
-            * itemInfo["Metascore"]
-            * 0.02
-            * itemInfo["rtRating"]
-            * 0.03
-            * itemInfo["imdbRating"]
-            + 6 * itemInfo["Awards"]
-        ) """
 
         rating = (
             WEIGHT_PREDICTION
