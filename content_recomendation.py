@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from surprise import SVD, Dataset, Reader
 
+np.random.seed(42)
+
 class ContentRecomendation:
 
     def __init__(self):
@@ -186,6 +188,6 @@ class ContentRecomendation:
         }
         
         # Assign a separate random value to the bias key
-        weights[bias_key] = np.random.randint(1, 10)  # Random value between 0 and 10
+        weights[bias_key] = np.random.randint(1, 5)  # Random value between 0 and 5
 
         return weights
