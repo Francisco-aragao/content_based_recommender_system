@@ -180,11 +180,11 @@ class ContentRecomendation:
     def initialize_weights(self, bias_key="bias_awards"):
         # the weights are not totally random. They are initialized with some intuition based on Kaggle experimentation
         weights = {
-            "prediction": 0.3,
-            "imdb_votes": 0.4,
-            "metascore": 0.1,
-            "rt_rating": 0.1,
-            "imdb": 0.1,
+            "prediction": 0.2,
+            "imdb_votes": 0.7,
+            "metascore": 0.02,
+            "rt_rating": 0.03,
+            "imdb": 0.05,
         }
         
         # Assign a separate random value to the bias key

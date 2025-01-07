@@ -80,10 +80,9 @@ if __name__ == "__main__":
     # Make final predictions
     finalPredictions = contentRecomendation.get_final_predictions(ratings_prediction_nparray, rat_predictions, item_table_info, weights)
 
-    print("Final weights:", weights)
+    # print("Final weights:", weights)
 
     # Normalize and save final predictions
     dfResult = contentRecomendation.get_final_target_df(dfTargets, finalPredictions)
 
-    if args.storeOutput:
-        dfResult.to_csv(args.storeOutput, index=False)
+    print(dfResult.to_csv(index=False))
